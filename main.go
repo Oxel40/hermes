@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"io"
 	"log"
 	"os"
+
+	"github.com/Oxel40/hermes/modules"
 )
 
 const (
@@ -24,9 +27,12 @@ var (
 	Info    *log.Logger
 	Warning *log.Logger
 	Error   *log.Logger
+
+	config modules.Config
 )
 
 func init() {
+	// Parse flags
 	flag.Parse()
 
 	file, err := os.OpenFile(*logFileDir, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -53,6 +59,13 @@ func init() {
 		log.Ldate|log.Ltime|log.Lshortfile)
 
 	log.New(file, "----------\n[STARTING] ", log.Ldate|log.Ltime).Println("")
+
+	// Parse config
+	confReader, err := os.Open("config.json")
+	if err != nil {
+		Error.Fatalln("Failed to open config file:", err)
+	}
+	json.NewDecoder(confReader).Decode(&config)
 }
 
 func main() {
@@ -64,11 +77,14 @@ func main() {
 		Error.Println("Something has failed")
 	*/
 
-	Trace.Println(*discordToken)
-	Trace.Println(*logFileDir)
-	Trace.Println(*disableDiscordClient)
-	Trace.Println(*enableWebsocketEndpoint)
-	Trace.Println(*websocketPort)
+	/*
+		Trace.Println(*discordToken)
+		Trace.Println(*logFileDir)
+		Trace.Println(*disableDiscordClient)
+		Trace.Println(*enableWebsocketEndpoint)
+		Trace.Println(*websocketPort)
+	*/
+	Trace.Println(config)
 }
 
 func logFlagInfo() {
