@@ -5,15 +5,17 @@ import (
 	"os"
 
 	"github.com/Oxel40/hermes/internal/logging"
+	"github.com/Oxel40/hermes/internal/token"
 	"github.com/fsnotify/fsnotify"
 )
 
 // Config stores configuration information
 type Config struct {
-	Services   []Service    `json:"services"`
-	Recipiens  []Recipient  `json:"recipients"`
-	WSClients  []WSClient   `json:"ws-clients"`
-	DiscordBot []DiscordBot `json:"discord-bot"`
+	Services         []Service      `json:"services"`
+	Recipiens        []Recipient    `json:"recipients"`
+	Communicators    []Communicator `json:"communicator"`
+	DiscordBot       []DiscordBot   `json:"discord-bot"`
+	attachedTokenMap *token.TokenMap
 }
 
 // Service ...
@@ -28,8 +30,8 @@ type Recipient struct {
 	Subscriptions []string `json:"subscriptions"`
 }
 
-// WSClient ...
-type WSClient struct {
+// Communicator ...
+type Communicator struct {
 	Name    string `json:"name"`
 	IDIndex int    `json:"id-index"`
 }
@@ -40,9 +42,17 @@ type DiscordBot struct {
 	IDIndex int    `json:"id-index"`
 }
 
+// AttatchTokenMap attaches the `tokenMap` to the `Config` to be updated on config updates
+func (config *Config) AttatchTokenMap(tokenMap *token.TokenMap) {
+	config.attachedTokenMap = tokenMap
+}
+
 // AttatchConfigFile loads a config from a file and watches for changes in the config during runtime
 func (config *Config) AttatchConfigFile(fileDir string, log *logging.Logger) {
 	config.parseConfig(fileDir, log)
+	config.attachedTokenMap.LoadFromFile("tokens.txt")
+	config.updateTokenMap()
+	config.attachedTokenMap.SaveToFile("tokens.txt")
 	log.Info.Println("Config loaded")
 
 	watcher, err := fsnotify.NewWatcher()
@@ -62,7 +72,10 @@ func (config *Config) AttatchConfigFile(fileDir string, log *logging.Logger) {
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					log.Info.Println("Config file modified:", event.Name)
 					config.parseConfig(fileDir, log)
+					config.updateTokenMap()
+					config.attachedTokenMap.SaveToFile("tokens.txt")
 					log.Info.Println("Config reloaded")
+
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					log.Error.Fatalln("Config file removed:", event.Name)
@@ -90,4 +103,33 @@ func (config *Config) parseConfig(fileDir string, log *logging.Logger) {
 		log.Error.Fatalln("Failed to open config file:", err)
 	}
 	json.NewDecoder(confReader).Decode(config)
+}
+
+func (config *Config) getAllServiceAndCommunicatorNames() []string {
+	var out []string
+	for _, service := range config.Services {
+		out = append(out, service.Name)
+	}
+	for _, communicator := range config.Communicators {
+		out = append(out, communicator.Name)
+	}
+	return out
+}
+
+func (config *Config) updateTokenMap() {
+	names := config.getAllServiceAndCommunicatorNames()
+	config.attachedTokenMap.Add(names...)
+	keys := config.attachedTokenMap.GetNames()
+	for _, key := range keys {
+		isPresent := false
+		for _, name := range names {
+			if key == name {
+				isPresent = true
+				break
+			}
+		}
+		if !isPresent {
+			config.attachedTokenMap.Remove(key)
+		}
+	}
 }
