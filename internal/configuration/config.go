@@ -14,8 +14,10 @@ type Config struct {
 	Services         []Service      `json:"services"`
 	Recipiens        []Recipient    `json:"recipients"`
 	Communicators    []Communicator `json:"communicator"`
-	DiscordBot       []DiscordBot   `json:"discord-bot"`
+	DiscordBot       DiscordBot     `json:"discord-bot"`
+	fileDir          string
 	attachedTokenMap *token.TokenMap
+	log              *logging.Logger
 }
 
 // Service ...
@@ -48,16 +50,27 @@ func (config *Config) AttatchTokenMap(tokenMap *token.TokenMap) {
 }
 
 // AttatchConfigFile loads a config from a file and watches for changes in the config during runtime
-func (config *Config) AttatchConfigFile(fileDir string, log *logging.Logger) {
-	config.parseConfig(fileDir, log)
+func (config *Config) AttatchConfigFile(fileDir string) {
+	config.fileDir = fileDir
+
+	config.parseConfig(fileDir)
 	config.attachedTokenMap.LoadFromFile("tokens.txt")
+
 	config.updateTokenMap()
 	config.attachedTokenMap.SaveToFile("tokens.txt")
-	log.Info.Println("Config loaded")
+	config.log.Info.Println("Config loaded")
+}
 
+// AttatchLogger attatches a `*logging.Logger` to a `Config` to be used in the config subroutine
+func (config *Config) AttatchLogger(log *logging.Logger) {
+	config.log = log
+}
+
+// StartConfigSubroutine ...
+func (config *Config) StartConfigSubroutine() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Error.Fatal(err)
+		config.log.Error.Fatal(err)
 	}
 
 	go func() {
@@ -68,41 +81,48 @@ func (config *Config) AttatchConfigFile(fileDir string, log *logging.Logger) {
 				if !ok {
 					return
 				}
-				log.Info.Println("Event:", event)
+				config.log.Info.Println("Event:", event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					log.Info.Println("Config file modified:", event.Name)
-					config.parseConfig(fileDir, log)
+					config.log.Info.Println("Config file modified:", event.Name)
+					err = config.parseConfig(config.fileDir)
+					if err != nil {
+						config.log.Error.Fatalln("Failed to parse config:", err)
+					}
 					config.updateTokenMap()
 					config.attachedTokenMap.SaveToFile("tokens.txt")
-					log.Info.Println("Config reloaded")
+					config.log.Info.Println("Config reloaded")
 
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					log.Error.Fatalln("Config file removed:", event.Name)
+					config.log.Error.Fatalln("Config file removed:", event.Name)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				log.Error.Println(err)
+				config.log.Error.Println(err)
 			}
 		}
 	}()
 
-	err = watcher.Add(fileDir)
+	err = watcher.Add(config.fileDir)
 	if err != nil {
-		log.Error.Fatal(err)
+		config.log.Error.Fatal(err)
 	}
 }
 
-func (config *Config) parseConfig(fileDir string, log *logging.Logger) {
+func (config *Config) parseConfig(fileDir string) error {
 	// Parse config
 	confReader, err := os.Open(fileDir)
 	defer confReader.Close()
 	if err != nil {
-		log.Error.Fatalln("Failed to open config file:", err)
+		return err
 	}
-	json.NewDecoder(confReader).Decode(config)
+	err = json.NewDecoder(confReader).Decode(config)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (config *Config) getAllServiceAndCommunicatorNames() []string {

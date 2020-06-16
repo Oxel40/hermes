@@ -10,32 +10,35 @@ import (
 )
 
 const (
-	defaulLogDir  = "log.txt"
-	defaultWsPort = 8080
+	defaulLogDir = "log.txt"
+	defaultPort  = 8080
 )
 
 var (
-	logFileDir    = flag.String("log", defaulLogDir, "log file location")
-	websocketPort = flag.Int("ws-port", defaultWsPort, "websocket port")
-
-	config   configuration.Config
-	tokenMap token.TokenMap
-	log      *logging.Logger
+	logFileDir = flag.String("log", defaulLogDir, "log file location")
+	httpPort   = flag.Int("port", defaultPort, "http/websocket port")
 )
 
 func init() {
 	// Parse flags
 	flag.Parse()
-
-	// Setup log
-	log = logging.GetLogger(*logFileDir)
-
-	tokenMap = token.TokenMap{make(map[string]string), make(map[string]string)}
-	config.AttatchTokenMap(&tokenMap)
-	config.AttatchConfigFile("config.json", log)
 }
 
 func main() {
+	var config configuration.Config
+	var tokenMap token.TokenMap
+	var log *logging.Logger
+
+	// Setup log
+	log = logging.GetLogger(*logFileDir)
+	// Create empty TokenMap
+	tokenMap = token.TokenMap{make(map[string]string), make(map[string]string)}
+
+	config.AttatchLogger(log)
+	config.AttatchTokenMap(&tokenMap)
+	config.AttatchConfigFile("config.json")
+
+	config.StartConfigSubroutine()
 	/*
 		Trace.Println("I have something standard to say")
 		Info.Println("Special Information")
