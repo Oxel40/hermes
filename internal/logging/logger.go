@@ -17,7 +17,7 @@ func GetLogger(logFileDir string) *Logger {
 	// Setup loging
 	file, err := os.OpenFile(logFileDir, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalln("Failed to open log file:", err)
+		log.Fatalln("Failed to open/create log file:", err)
 	}
 
 	multi := io.MultiWriter(file, os.Stdout)

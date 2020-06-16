@@ -30,7 +30,7 @@
             ]
         }
     ],
-    "ws-clients": [
+    "communicators": [
         {
             "name": "mail-bot",
             "id-index": 1
