@@ -56,9 +56,9 @@ func (tm *TokenMap) GetNames() []string {
 
 func (tm *TokenMap) SaveToFile(fileDir string) error {
 	var err = os.Remove(fileDir)
-	if err != nil {
+	/* if err != nil {
 		return err
-	}
+	} */
 	file, err := os.OpenFile(fileDir, os.O_CREATE|os.O_RDWR, 0660)
 	if err != nil {
 		return err
@@ -111,13 +111,3 @@ func (tm *TokenMap) parseFileString(str string) {
 		}
 	}
 }
-
-// TODO caching
-/*
-func SaveTokens() {
-	file, err := os.OpenFile("tokens/token.txt", os.O_CREATE, 0440)
-	if err != nil {
-		log.Fatalln("Failed to open/create token file:", err)
-	}
-}
-*/

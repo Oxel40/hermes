@@ -2,11 +2,14 @@ package main
 
 import (
 	"flag"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Oxel40/hermes/internal/configuration"
 	"github.com/Oxel40/hermes/internal/logging"
 	"github.com/Oxel40/hermes/internal/token"
+	"github.com/Oxel40/hermes/internal/web"
 )
 
 const (
@@ -25,28 +28,37 @@ func init() {
 }
 
 func main() {
-	var config configuration.Config
-	var tokenMap token.TokenMap
-	var log *logging.Logger
-
 	// Setup log
-	log = logging.GetLogger(*logFileDir)
-	// Create empty TokenMap
-	tokenMap = token.TokenMap{make(map[string]string), make(map[string]string)}
+	log := logging.GetLogger(*logFileDir)
+	// Create empty TokenMaps
+	serviceTokenMap := token.TokenMap{make(map[string]string), make(map[string]string)}
+	communicatorTokenMap := token.TokenMap{make(map[string]string), make(map[string]string)}
 
+	// Setup Config
+	var config configuration.Config
 	config.AttatchLogger(log)
-	config.AttatchTokenMap(&tokenMap)
+	config.AttatchServiceTokenMap(&serviceTokenMap)
+	config.AttatchCommunicatorTokenMap(&communicatorTokenMap)
 	config.AttatchConfigFile("config.json")
 
-	config.StartConfigSubroutine()
-	/*
-		Trace.Println("I have something standard to say")
-		Info.Println("Special Information")
-		Warning.Println("There is something you need to know about")
-		Error.Println("Something has failed")
-	*/
-	for {
-		time.Sleep(3 * time.Second)
-		log.Trace.Println(config)
-	}
+	// Setup WebEndpoint
+	var webEndpoint web.Web
+	webEndpoint.AttatchLogger(log)
+	webEndpoint.AttatchServiceTokenMap(&serviceTokenMap)
+	webEndpoint.AttatchCommunicatorTokenMap(&communicatorTokenMap)
+	webEndpoint.AttatchConfig(&config)
+
+	// Start subroutines
+	go config.Subroutine()
+	go webEndpoint.Subroutine(*httpPort)
+
+	log.Info.Println("hermes is now running. Press CTRL-C to exit.")
+	// Wait here until CTRL-C or other term signal is received
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	<-sc
+	log.Info.Println("hermes terminated, exiting...")
+
+	// Cleanly close down the webendpoint
+	webEndpoint.Close()
 }

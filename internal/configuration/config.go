@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 
 	"github.com/Oxel40/hermes/internal/logging"
@@ -11,13 +12,13 @@ import (
 
 // Config stores configuration information
 type Config struct {
-	Services         []Service      `json:"services"`
-	Recipiens        []Recipient    `json:"recipients"`
-	Communicators    []Communicator `json:"communicator"`
-	DiscordBot       DiscordBot     `json:"discord-bot"`
-	fileDir          string
-	attachedTokenMap *token.TokenMap
-	log              *logging.Logger
+	Services             []Service      `json:"services"`
+	Recipiens            []Recipient    `json:"recipients"`
+	Communicators        []Communicator `json:"communicators"`
+	fileDir              string
+	communicatorTokenMap *token.TokenMap
+	serviceTokenMap      *token.TokenMap
+	log                  *logging.Logger
 }
 
 // Service ...
@@ -38,26 +39,40 @@ type Communicator struct {
 	IDIndex int    `json:"id-index"`
 }
 
-// DiscordBot ...
-type DiscordBot struct {
-	Token   string `json:"token"`
-	IDIndex int    `json:"id-index"`
+// AttatchServiceTokenMap attaches the `tokenMap` to the `Config` to be updated on config updates
+func (config *Config) AttatchServiceTokenMap(tokenMap *token.TokenMap) {
+	config.serviceTokenMap = tokenMap
 }
 
-// AttatchTokenMap attaches the `tokenMap` to the `Config` to be updated on config updates
-func (config *Config) AttatchTokenMap(tokenMap *token.TokenMap) {
-	config.attachedTokenMap = tokenMap
+// AttatchCommunicatorTokenMap attaches the `tokenMap` to the `Config` to be updated on config updates
+func (config *Config) AttatchCommunicatorTokenMap(tokenMap *token.TokenMap) {
+	config.communicatorTokenMap = tokenMap
 }
 
 // AttatchConfigFile loads a config from a file and watches for changes in the config during runtime
 func (config *Config) AttatchConfigFile(fileDir string) {
 	config.fileDir = fileDir
 
-	config.parseConfig(fileDir)
-	config.attachedTokenMap.LoadFromFile("tokens.txt")
+	err := config.parseConfig(config.fileDir)
+	if err != nil {
+		config.log.Error.Fatalln("Failed to parse config:", err)
+	}
+	errs := config.loadTokenMaps()
+	for _, err := range errs {
+		if err != nil {
+			config.log.Error.Fatalln(err)
+		}
+	}
 
-	config.updateTokenMap()
-	config.attachedTokenMap.SaveToFile("tokens.txt")
+	config.updateTokenMaps()
+
+	errs = config.saveTokenMaps()
+	for _, err := range errs {
+		if err != nil {
+			config.log.Error.Fatalln(err)
+		}
+	}
+
 	config.log.Info.Println("Config loaded")
 }
 
@@ -66,8 +81,8 @@ func (config *Config) AttatchLogger(log *logging.Logger) {
 	config.log = log
 }
 
-// StartConfigSubroutine ...
-func (config *Config) StartConfigSubroutine() {
+// Subroutine ...
+func (config *Config) Subroutine() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		config.log.Error.Fatal(err)
@@ -88,8 +103,8 @@ func (config *Config) StartConfigSubroutine() {
 					if err != nil {
 						config.log.Error.Fatalln("Failed to parse config:", err)
 					}
-					config.updateTokenMap()
-					config.attachedTokenMap.SaveToFile("tokens.txt")
+					config.updateTokenMaps()
+					config.saveTokenMaps()
 					config.log.Info.Println("Config reloaded")
 
 				}
@@ -122,24 +137,51 @@ func (config *Config) parseConfig(fileDir string) error {
 	if err != nil {
 		return err
 	}
+
+	countMap := make(map[string]int)
+	for _, val := range config.getServiceNames() {
+		if len(val) <= 0 {
+			return errors.New("Services need to have names that are atleast one character long, \"" + val + "\" does not")
+		}
+		countMap[val]++
+		if countMap[val] > 1 {
+			return errors.New("Services need to have uniqe names, \"" + val + "\" encountered more than once")
+		}
+	}
+
+	countMap = make(map[string]int)
+	for _, val := range config.getCommunicatorNames() {
+		if len(val) <= 0 {
+			return errors.New("Communicators need to have names that are atleast one character long, \"" + val + "\" does not")
+		}
+		countMap[val]++
+		if countMap[val] > 1 {
+			return errors.New("Communicators need to have uniqe names, \"" + val + "\" encountered more than once")
+		}
+	}
+
 	return nil
 }
 
-func (config *Config) getAllServiceAndCommunicatorNames() []string {
+func (config *Config) getServiceNames() []string {
 	var out []string
 	for _, service := range config.Services {
 		out = append(out, service.Name)
 	}
+	return out
+}
+
+func (config *Config) getCommunicatorNames() []string {
+	var out []string
 	for _, communicator := range config.Communicators {
 		out = append(out, communicator.Name)
 	}
 	return out
 }
 
-func (config *Config) updateTokenMap() {
-	names := config.getAllServiceAndCommunicatorNames()
-	config.attachedTokenMap.Add(names...)
-	keys := config.attachedTokenMap.GetNames()
+func updateTokenMap(tokenMap *token.TokenMap, names []string) {
+	tokenMap.Add(names...)
+	keys := tokenMap.GetNames()
 	for _, key := range keys {
 		isPresent := false
 		for _, name := range names {
@@ -149,7 +191,30 @@ func (config *Config) updateTokenMap() {
 			}
 		}
 		if !isPresent {
-			config.attachedTokenMap.Remove(key)
+			tokenMap.Remove(key)
 		}
 	}
+}
+
+func (config *Config) updateTokenMaps() {
+	updateTokenMap(config.serviceTokenMap, config.getServiceNames())
+	updateTokenMap(config.communicatorTokenMap, config.getCommunicatorNames())
+}
+
+func (config *Config) saveTokenMaps() []error {
+	err := make([]error, 2)
+	err[0] = config.serviceTokenMap.SaveToFile("ServiceTokens.txt")
+	err[1] = config.communicatorTokenMap.SaveToFile("CommunicatorTokens.txt")
+	return err
+}
+
+func (config *Config) loadTokenMaps() []error {
+	err := make([]error, 2)
+	if e := config.serviceTokenMap.LoadFromFile("ServiceTokens.txt"); !os.IsNotExist(e) {
+		err[0] = e
+	}
+	if e := config.communicatorTokenMap.LoadFromFile("CommunicatorTokens.txt"); !os.IsNotExist(e) {
+		err[1] = e
+	}
+	return err
 }
