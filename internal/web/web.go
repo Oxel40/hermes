@@ -154,6 +154,14 @@ func (web *Web) Subroutine(port int) {
 	http.ListenAndServe(fmt.Sprintf(":%d", port), router)
 }
 
+// Close ...
+func (web *Web) Close() {
+	for _, conn := range web.nameToConn {
+		conn.WriteMessage(websocket.CloseMessage, []byte("hermes is shutting down"))
+		conn.Close()
+	}
+}
+
 func brodcastMessage(web *Web, from, msg string) {
 	subs := getSubscribers(web.config, from)
 

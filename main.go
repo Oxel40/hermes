@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Oxel40/hermes/internal/configuration"
 	"github.com/Oxel40/hermes/internal/logging"
@@ -49,15 +52,13 @@ func main() {
 	go config.Subroutine()
 	go webEndpoint.Subroutine(*httpPort)
 
-	/* for {
-	time.Sleep(3 * time.Second)
-	log.Trace.Println(config)
-	} */
-	/*
-		Trace.Println("I have something standard to say")
-		Info.Println("Special Information")
-		Warning.Println("There is something you need to know about")
-		Error.Println("Something has failed")
-	*/
-	select {}
+	log.Info.Println("hermes is now running. Press CTRL-C to exit.")
+	// Wait here until CTRL-C or other term signal is received
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	<-sc
+	log.Info.Println("hermes terminated, exiting...")
+
+	// Cleanly close down the webendpoint
+	webEndpoint.Close()
 }
