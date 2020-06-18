@@ -4,29 +4,35 @@
             "name": "wamp"
         },
         {
+            "name": "curl-testing"
+        },
+        {
             "name": "ts3server"
         }
     ],
     "recipients": [
         {
-            "name": "Ragnar",
+            "name": "Oxel",
             "ids": [
-                "Rag#1234",
-                "rag@mail.com"
-            ],
-            "subscriptions": [
-                "wamp"
-            ]
-        },
-        {
-            "name": "Bill",
-            "ids": [
-                "Chill#1544",
-                "bill@mail.com"
+                "Oxel#8080",
+                ""
             ],
             "subscriptions": [
                 "wamp",
-                "ts3server"
+                "ts3server",
+                "curl-testing"
+            ]
+        },
+        {
+            "name": "Kefin",
+            "ids": [
+                "Kaleinthranx#0070",
+                ""
+            ],
+            "subscriptions": [
+                "wamp",
+                "ts3server",
+                "curl-testing"
             ]
         }
     ],
@@ -34,10 +40,10 @@
         {
             "name": "mail-bot",
             "id-index": 1
+        },
+        {
+            "name": "discord-bot",
+            "id-index": 0
         }
-    ],
-    "discord-bot": {
-        "token": "<YOUR_TOKEN_GOES_HERE>",
-        "id-index": 0
-    }
+    ]
 }

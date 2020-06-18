@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"time"
 
 	"github.com/Oxel40/hermes/internal/configuration"
 	"github.com/Oxel40/hermes/internal/logging"
 	"github.com/Oxel40/hermes/internal/token"
+	"github.com/Oxel40/hermes/internal/web"
 )
 
 const (
@@ -25,28 +25,39 @@ func init() {
 }
 
 func main() {
-	var config configuration.Config
-	var tokenMap token.TokenMap
-	var log *logging.Logger
-
 	// Setup log
-	log = logging.GetLogger(*logFileDir)
-	// Create empty TokenMap
-	tokenMap = token.TokenMap{make(map[string]string), make(map[string]string)}
+	log := logging.GetLogger(*logFileDir)
+	// Create empty TokenMaps
+	serviceTokenMap := token.TokenMap{make(map[string]string), make(map[string]string)}
+	communicatorTokenMap := token.TokenMap{make(map[string]string), make(map[string]string)}
 
+	// Setup Config
+	var config configuration.Config
 	config.AttatchLogger(log)
-	config.AttatchTokenMap(&tokenMap)
+	config.AttatchServiceTokenMap(&serviceTokenMap)
+	config.AttatchCommunicatorTokenMap(&communicatorTokenMap)
 	config.AttatchConfigFile("config.json")
 
-	config.StartConfigSubroutine()
+	// Setup WebEndpoint
+	var webEndpoint web.Web
+	webEndpoint.AttatchLogger(log)
+	webEndpoint.AttatchServiceTokenMap(&serviceTokenMap)
+	webEndpoint.AttatchCommunicatorTokenMap(&communicatorTokenMap)
+	webEndpoint.AttatchConfig(&config)
+
+	// Start subroutines
+	go config.Subroutine()
+	go webEndpoint.Subroutine(*httpPort)
+
+	/* for {
+	time.Sleep(3 * time.Second)
+	log.Trace.Println(config)
+	} */
 	/*
 		Trace.Println("I have something standard to say")
 		Info.Println("Special Information")
 		Warning.Println("There is something you need to know about")
 		Error.Println("Something has failed")
 	*/
-	for {
-		time.Sleep(3 * time.Second)
-		log.Trace.Println(config)
-	}
+	select {}
 }

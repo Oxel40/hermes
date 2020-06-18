@@ -15,7 +15,6 @@ type Config struct {
 	Services             []Service      `json:"services"`
 	Recipiens            []Recipient    `json:"recipients"`
 	Communicators        []Communicator `json:"communicators"`
-	DiscordBot           DiscordBot     `json:"discord-bot"`
 	fileDir              string
 	communicatorTokenMap *token.TokenMap
 	serviceTokenMap      *token.TokenMap
@@ -37,12 +36,6 @@ type Recipient struct {
 // Communicator ...
 type Communicator struct {
 	Name    string `json:"name"`
-	IDIndex int    `json:"id-index"`
-}
-
-// DiscordBot ...
-type DiscordBot struct {
-	Token   string `json:"token"`
 	IDIndex int    `json:"id-index"`
 }
 
@@ -88,8 +81,8 @@ func (config *Config) AttatchLogger(log *logging.Logger) {
 	config.log = log
 }
 
-// StartConfigSubroutine ...
-func (config *Config) StartConfigSubroutine() {
+// Subroutine ...
+func (config *Config) Subroutine() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		config.log.Error.Fatal(err)
