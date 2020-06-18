@@ -17,5 +17,11 @@
 # Log file
 log.txt
 
+# Config file
+config.json
+
+# Token files
+*Tokens.txt
+
 # VS Code config
 .vscode
